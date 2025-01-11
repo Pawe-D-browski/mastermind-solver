@@ -38,11 +38,7 @@ def get_choice_input(prompt, choices):
         print(f'Invalid input, please choose only from {", ".join(choices)}.')
 
 
-def start_game():
-    print("Welcome to Mastermind Solver!")
-    print()
-    print("Please choose options for the game.")
-
+def ask_for_game_options():
     number_of_numbers_in_guess = get_int_input_range("How many numbers in guess: ", 1, 50)
     number_of_possible_numbers = get_int_input_range("How many different possible numbers: ", 1, 200)
 
@@ -52,6 +48,18 @@ def start_game():
         numbers_can_repeat = False
     else:
         numbers_can_repeat = get_bool_input("Can numbers repeat (yes or no): ")
+
+    return {
+        "numbers_can_repeat": numbers_can_repeat,
+        "number_of_possible_numbers": number_of_possible_numbers,
+        "number_of_numbers_in_guess": number_of_numbers_in_guess
+    }
+
+
+def warn_if_hard_to_solve(game_options):
+    number_of_numbers_in_guess = game_options["number_of_numbers_in_guess"]
+    number_of_possible_numbers = game_options["number_of_possible_numbers"]
+
     if (
         ((number_of_possible_numbers == 2) and (number_of_numbers_in_guess > 45))
         or ((number_of_possible_numbers == 3) and (number_of_numbers_in_guess > 25))
@@ -60,7 +68,10 @@ def start_game():
         or (number_of_numbers_in_guess > 100)
     ):
         print("Warning! This game might take a very long time to complete.")
-    print()
+
+
+def ask_for_output_format(game_options):
+    number_of_possible_numbers = game_options["number_of_possible_numbers"]
 
     output_formats = ["a", "b"]
     output_formats_left = ["c", "d", "e"]
@@ -102,19 +113,32 @@ def start_game():
         guess_format = "letters"
         start_from_one = False
 
+    game_options["guess_format"] = guess_format
+    game_options["start_from_one"] = start_from_one
+
+    return game_options
+
+
+def start_game():
+    print("Welcome to Mastermind Solver!")
+    print()
+    print("Please choose options for the game.")
+
+    game_options = ask_for_game_options()
+
+    warn_if_hard_to_solve(game_options)
+
+    print()
+
+    game_options = ask_for_output_format(game_options)
+
     print()
     print("The game starts!")
 
-    return {
-        "numbers_can_repeat": numbers_can_repeat,
-        "number_of_possible_numbers": number_of_possible_numbers,
-        "number_of_numbers_in_guess": number_of_numbers_in_guess,
-        "guess_format": guess_format,
-        "start_from_one": start_from_one
-    }
+    return game_options
 
 
-def count_in_list(value, array):
+def count_in_list_expression(value, array):
     expression = []
     for item in array:
         expression.append(If(item == value, 1, 0))
@@ -152,7 +176,7 @@ def solve(options, past_guesses_data=None, stats=None):
 
         for past_number in set(past_numbers):
             past_number_count = past_numbers.count(past_number)
-            result_number_count = count_in_list(past_number, result_numbers)
+            result_number_count = count_in_list_expression(past_number, result_numbers)
             cows_constraint.append(If(past_number_count <= result_number_count, past_number_count, result_number_count))
 
         bulls_sum = Sum(bulls_constraint)
@@ -208,7 +232,7 @@ def format_time(total_seconds):
         return f"{time_parts[0]}, {time_parts[1]} and {time_parts[2]}"
 
 
-def formated_guess(guess, options):
+def format_guess(guess, options):
     start_from_one = options["start_from_one"]
     guess_format = options["guess_format"]
     number_of_possible_numbers = options["number_of_possible_numbers"]
@@ -254,7 +278,7 @@ def formated_guess(guess, options):
     return result
 
 
-def get_guess_data_input(guess, options, past_guesses_data=None, stats=None):
+def get_guess_input(guess, options, past_guesses_data=None, stats=None):
     if not past_guesses_data:
         past_guesses_data = []
 
@@ -265,7 +289,7 @@ def get_guess_data_input(guess, options, past_guesses_data=None, stats=None):
     if stats:
         print(f"Found a valid guess {stats["number_of_guesses"]} in {format_time(stats["time_per_move"][-1])}.")
     print("Use guess:")
-    print(formated_guess(guess, options))
+    print(format_guess(guess, options))
 
     if numbers_can_repeat and (len(past_guesses_data) > 0):
         minimum_sum = past_guesses_data[-1]["bulls"] + past_guesses_data[-1]["cows"]
@@ -301,6 +325,9 @@ def get_guess_data_input(guess, options, past_guesses_data=None, stats=None):
             break
         else:
             bulls = get_int_input_range("Input number of bulls: ", 0, number_of_numbers_in_guess)
+            if bulls == number_of_numbers_in_guess:
+                only_bulls = True
+                all_bulls = True
 
         if only_bulls:
             cows = 0
@@ -340,21 +367,21 @@ def get_guess_data_input(guess, options, past_guesses_data=None, stats=None):
 
 
 def play():
-    options = start_game()
+    game_options = start_game()
     stats = {"number_of_guesses": 0, "time_per_move": []}
     past_guesses_data = []
 
     while True:
-        current_guess = solve(options, past_guesses_data, stats)
+        current_guess = solve(game_options, past_guesses_data, stats)
         if not current_guess:
             print("No valid solutions exist.")
             print("Did you make a mistake?")
             break
-        guess_data = get_guess_data_input(current_guess, options, past_guesses_data, stats)
+        guess_data = get_guess_input(current_guess, game_options, past_guesses_data, stats)
         past_guesses_data.append(guess_data)
-        if guess_data["bulls"] == options["number_of_numbers_in_guess"]:
+        if guess_data["bulls"] == game_options["number_of_numbers_in_guess"]:
             print("Congratulations, game won!")
-            print(f"Total guesses: {stats["number_of_guesses"]}. Processing time: {format_time(sum(stats["time_per_move"]))}.")
+            print(f"Total guesses: {stats["number_of_guesses"]}. Total processing time: {format_time(sum(stats["time_per_move"]))}.")
             break
 
 
